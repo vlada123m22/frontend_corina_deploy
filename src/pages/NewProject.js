@@ -14,8 +14,7 @@ export default function NewProject() {
     endDate: '',
     minNrParticipants: '',
     maxNrParticipants: '',
-    teamsPreformed: false, // 'A' means false (pre-formed teams), 'B' means true (manual registration)
-    registrationType: '', // 'A' or 'B'
+    teamsPreformed: null,        // null = not selected, false = Type A, true = Type B
     formQuestions: [],
     roleOptions: [],
     backgroundOptions: [],
@@ -76,20 +75,19 @@ export default function NewProject() {
     e.preventDefault();
     setError('');
 
-    if (!form.registrationType) {
-      setError("Please select a registration type (A or B)");
+    if (form.teamsPreformed === null) {
+      setError('Please select a project type (A or B).');
       return;
     }
 
     if (!form.projectName) {
-      setError("Project name is required");
+      setError('Project name is required');
       return;
     }
 
     setLoading(true);
 
     try {
-      // Transform form data for backend API
       const projectData = {
         projectName: form.projectName,
         projectDescription: form.projectDescription,
@@ -97,7 +95,7 @@ export default function NewProject() {
         endDate: form.endDate ? new Date(form.endDate).toISOString() : null,
         minNrParticipants: parseInt(form.minNrParticipants) || 1,
         maxNrParticipants: parseInt(form.maxNrParticipants) || 10,
-        teamsPreformed: form.registrationType === 'B', // B = participants register teams
+        teamsPreformed: form.teamsPreformed,   // already a boolean
         formQuestions: form.formQuestions,
         roleOptions: form.roleOptions,
         backgroundOptions: form.backgroundOptions,
@@ -180,32 +178,36 @@ export default function NewProject() {
             </div>
           </div>
 
-          {/* Registration Type - single choice */}
+          {/* Project Type - bound directly to teamsPreformed */}
           <div className="form-group">
             <label style={{ marginBottom: '12px', display: 'block' }}>
-              Registration Type *
+              Project Type *
             </label>
             <div className="registration-options">
-              <label className={`reg-option ${form.registrationType === 'A' ? 'selected' : ''}`}>
+              <label className={`reg-option ${form.teamsPreformed === false ? 'selected' : ''}`}>
                 <input
                   type="radio"
-                  name="registrationType"
-                  value="A"
-                  checked={form.registrationType === 'A'}
-                  onChange={(e) => setForm({ ...form, registrationType: e.target.value })}
+                  name="teamsPreformed"
+                  checked={form.teamsPreformed === false}
+                  onChange={() => setForm({ ...form, teamsPreformed: false })}
                 />
-                <span>A: Participants register on the platform and apply to teams.</span>
+                <span>
+                  <strong>Type A — Idea-based.</strong> Participants register individually;
+                  teams are formed at the event by joining or creating ideas.
+                </span>
               </label>
 
-              <label className={`reg-option ${form.registrationType === 'B' ? 'selected' : ''}`}>
+              <label className={`reg-option ${form.teamsPreformed === true ? 'selected' : ''}`}>
                 <input
                   type="radio"
-                  name="registrationType"
-                  value="B"
-                  checked={form.registrationType === 'B'}
-                  onChange={(e) => setForm({ ...form, registrationType: e.target.value })}
+                  name="teamsPreformed"
+                  checked={form.teamsPreformed === true}
+                  onChange={() => setForm({ ...form, teamsPreformed: true })}
                 />
-                <span>B: Participants register their teams through the form.</span>
+                <span>
+                  <strong>Type B — Team-based.</strong> Participants register with their
+                  pre-formed teams through the application form.
+                </span>
               </label>
             </div>
           </div>

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { dashboardAPI, teamAPI } from '../services/apiClient';
-import { downloadParticipantsExcel } from '../utils/downloadParticipantsExcel';
 
 export default function CreateTeams() {
   const { projectId } = useParams();
@@ -17,7 +16,7 @@ export default function CreateTeams() {
   const queryParams = new URLSearchParams(location.search);
   const returnTo = queryParams.get('returnTo') || 'teams'; // default to teams
 
-  const [allParticipantsData, setAllParticipantsData] = useState([]);
+  const [participants, setParticipants] = useState([]);
   const [existingTeams, setExistingTeams] = useState([]);
   const [unassignedParticipants, setUnassignedParticipants] = useState([]);
 
@@ -38,35 +37,26 @@ export default function CreateTeams() {
         dashboardAPI.getTeams(projectId),
       ]);
 
-      const withTeams    = Array.isArray(participantsData?.participantsWithTeams)    ? participantsData.participantsWithTeams    : [];
-      const withoutTeams = Array.isArray(participantsData?.participantsWithoutTeams) ? participantsData.participantsWithoutTeams : [];
-
-      const allParticipants = [...withTeams, ...withoutTeams];
-      setAllParticipantsData(allParticipants);
+      setParticipants(participantsData || []);
       setExistingTeams(teamsData || []);
 
-      // Calculate unassigned participants (those without a team)
-      const unassigned = withoutTeams;
+      // Calculate unassigned participants
+      const assignedIds = new Set();
+      (teamsData || []).forEach(team => {
+        (team.members || []).forEach(member => {
+          assignedIds.add(member.id || member.applicantId);
+        });
+      });
+
+      const unassigned = (participantsData || []).filter(
+        p => !assignedIds.has(p.id || p.applicantId)
+      );
       setUnassignedParticipants(unassigned);
       setManualTeams([]);
       setSelectedParticipants({});
-      setError(null);
     } catch (err) {
       console.error('Error loading teams data:', err);
-      setError(err.message);
-      // Fallback data
-      setAllParticipantsData([
-        { firstName: 'Andrei',       lastName: 'Vasile',    teamName: '' },
-        { firstName: 'Cristina',     lastName: 'Marin',     teamName: '' },
-        { firstName: 'Anna',         lastName: 'Popescu',   teamName: 'Quantum Builders' },
-        { firstName: 'Ion',          lastName: 'Rusu',      teamName: 'Quantum Builders' },
-        { firstName: 'Alexandru',    lastName: 'Munteanu',  teamName: 'Code Horizon' },
-      ]);
-      setExistingTeams([]);
-      setUnassignedParticipants([
-        { firstName: 'Andrei',   lastName: 'Vasile' },
-        { firstName: 'Cristina', lastName: 'Marin' },
-      ]);
+      setError(err.message || 'Failed to load participants and teams');
     } finally {
       setLoading(false);
     }
@@ -168,47 +158,12 @@ export default function CreateTeams() {
     );
   }
 
-  const handleDownloadExcel = () => {
-    downloadParticipantsExcel(allParticipantsData, projectId);
-  };
-
   return (
     <main className="section">
       <div className="container">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h1 className="title-1">Project Participants</h1>
-          <button
-            onClick={handleDownloadExcel}
-            disabled={loading || allParticipantsData.length === 0}
-            style={{
-              padding: '10px 20px',
-              backgroundColor: '#4CAF50',
-              color: 'white',
-              border: 'none',
-              borderRadius: '5px',
-              cursor: loading || allParticipantsData.length === 0 ? 'not-allowed' : 'pointer',
-              opacity: loading || allParticipantsData.length === 0 ? 0.5 : 1,
-              fontSize: '14px',
-            }}
-          >
-            {loading ? 'Loading...' : 'Download Excel'}
-          </button>
-        </div>
-
-        <div className="tabs-row">
-          <button
-            className="tab-btn"
-            onClick={() => navigate(`/participants/${projectId}`)}
-          >
-            Teams
-          </button>
-          <button
-            className="tab-btn"
-            onClick={() => navigate(`/participants/${projectId}/list`)}
-          >
-            Participants
-          </button>
-          <button className="tab-btn active">Create Teams</button>
+        <div className="teams-header">
+          <h1 className="title-1">Manage Teams</h1>
+          <p>Create and organize teams for your project</p>
         </div>
 
         {error && (
@@ -226,11 +181,11 @@ export default function CreateTeams() {
             </p>
             <div className="teams-grid">
               {existingTeams.map((team, idx) => (
-                <div key={team.id || idx} className="team-card">
-                  <h3 style={{ marginTop: 0, marginBottom: '15px' }}>{team.ideaTitle || `Team ${idx + 1}`}</h3>
-                  <ul style={{ margin: '0', paddingLeft: '20px' }}>
+                <div key={team.id || idx} className="team-card" style={{ padding: '20px', border: '1px solid #ddd', borderRadius: '8px' }}>
+                  <h3 style={{ marginTop: 0 }}>{team.ideaTitle || `Team ${idx + 1}`}</h3>
+                  <ul style={{ margin: '10px 0', paddingLeft: '20px' }}>
                     {(team.members || []).map((member, midx) => (
-                      <li key={midx} className="team-member">
+                      <li key={midx}>
                         {member.firstName} {member.lastName}
                       </li>
                     ))}
@@ -243,8 +198,8 @@ export default function CreateTeams() {
 
         {/* Mode Selection */}
         {mode === 'view' && (
-          <div className="mode-selection" style={{ marginBottom: '40px' }}>
-            <div>
+          <div className="mode-selection">
+            <div style={{ marginBottom: '30px' }}>
               <h2 className="title-2">Unassigned Participants: {unassignedParticipants.length}</h2>
               {unassignedParticipants.length > 0 ? (
                 <div style={{ display: 'flex', gap: '20px', marginTop: '20px' }}>
@@ -278,8 +233,8 @@ export default function CreateTeams() {
             <h2 className="title-2">Manually Create Teams</h2>
 
             {/* Current Team Building */}
-            <div className="question-item" style={{ marginBottom: '30px' }}>
-              <h3 style={{ marginTop: 0, marginBottom: '15px' }}>Build a Team ({currentTeamBuild.length} member{currentTeamBuild.length !== 1 ? 's' : ''})</h3>
+            <div className="current-team-builder" style={{ marginBottom: '30px', padding: '20px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
+              <h3 style={{ marginTop: 0 }}>Build a Team ({currentTeamBuild.length} member{currentTeamBuild.length !== 1 ? 's' : ''})</h3>
               {currentTeamBuild.length > 0 && (
                 <div style={{ marginBottom: '15px' }}>
                   <p style={{ marginBottom: '10px', fontWeight: 'bold' }}>Selected Members:</p>
@@ -292,28 +247,23 @@ export default function CreateTeams() {
                         <div
                           key={participantId}
                           style={{
+                            backgroundColor: '#e3f2fd',
+                            padding: '8px 12px',
+                            borderRadius: '20px',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '8px',
-                            padding: '8px 12px',
-                            backgroundColor: 'var(--accent)',
-                            color: 'white',
-                            borderRadius: '4px',
                           }}
                         >
-                          <span>
-                            {p?.firstName} {p?.lastName}
-                          </span>
+                          <span>{p?.firstName} {p?.lastName}</span>
                           <button
                             onClick={() => removeParticipantFromCurrentTeam(participantId)}
                             style={{
                               background: 'none',
                               border: 'none',
-                              color: 'white',
                               cursor: 'pointer',
                               fontSize: '18px',
-                              padding: 0,
-                              lineHeight: 1,
+                              color: '#d32f2f',
                             }}
                           >
                             ×
@@ -356,28 +306,21 @@ export default function CreateTeams() {
                       onClick={() => addParticipantToCurrentTeam(id)}
                       style={{
                         padding: '15px',
-                        backgroundColor: isInCurrentTeam ? 'var(--accent)' : 'var(--project-card-bg)',
-                        color: isInCurrentTeam ? 'white' : 'var(--text-color)',
-                        border: `1px solid ${isInCurrentTeam ? 'var(--accent)' : 'var(--black-border)'}`,
+                        border: isInCurrentTeam ? '2px solid #1976d2' : '1px solid #ddd',
                         borderRadius: '8px',
                         cursor: 'pointer',
-                        textAlign: 'center',
+                        backgroundColor: isInCurrentTeam ? '#f0f8ff' : '#fff',
                         transition: 'all 0.2s',
                       }}
-                      onMouseOver={(e) => {
-                        if (!isInCurrentTeam) {
-                          e.currentTarget.style.backgroundColor = '#f0f0f0';
-                        }
-                      }}
-                      onMouseOut={(e) => {
-                        if (!isInCurrentTeam) {
-                          e.currentTarget.style.backgroundColor = 'var(--project-card-bg)';
-                        }
-                      }}
                     >
-                      <p style={{ margin: 0, fontWeight: 500 }}>
+                      <p style={{ margin: 0, fontWeight: 'bold' }}>
                         {participant.firstName} {participant.lastName}
                       </p>
+                      {participant.email && (
+                        <p style={{ margin: '5px 0 0 0', fontSize: '0.9em', color: '#666' }}>
+                          {participant.email}
+                        </p>
+                      )}
                     </div>
                   );
                 })}
@@ -386,16 +329,16 @@ export default function CreateTeams() {
 
             {/* Preview of Teams to be Created */}
             {manualTeams.length > 0 && (
-              <div style={{ marginBottom: '30px' }}>
-                <h3>Teams to Create ({manualTeams.length})</h3>
+              <div style={{ marginBottom: '30px', padding: '20px', backgroundColor: '#f5f5f5', borderRadius: '8px' }}>
+                <h3 style={{ marginTop: 0 }}>Teams to Create ({manualTeams.length})</h3>
                 {manualTeams.map((team, idx) => (
-                  <div key={team.id} className="team-card" style={{ marginBottom: '15px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div key={team.id} style={{ marginBottom: '15px', padding: '15px', backgroundColor: '#fff', borderRadius: '4px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
                         <p style={{ margin: '0 0 10px 0', fontWeight: 'bold' }}>Team {idx + 1} ({team.members.length} members)</p>
                         <ul style={{ margin: 0, paddingLeft: '20px' }}>
                           {team.members.map((member, midx) => (
-                            <li key={midx} className="team-member">
+                            <li key={midx}>
                               {member.firstName} {member.lastName}
                             </li>
                           ))}
@@ -409,7 +352,6 @@ export default function CreateTeams() {
                           cursor: 'pointer',
                           fontSize: '24px',
                           color: '#d32f2f',
-                          padding: 0,
                         }}
                       >
                         ×
@@ -437,76 +379,36 @@ export default function CreateTeams() {
                   setCurrentTeamBuild([]);
                 }}
                 style={{
-                  padding: '12px 28px',
+                  padding: '10px 20px',
                   backgroundColor: '#f44336',
                   color: 'white',
                   border: 'none',
-                  borderRadius: '5px',
+                  borderRadius: '4px',
                   cursor: 'pointer',
-                  fontWeight: 500,
                 }}
               >
                 Cancel
               </button>
             </div>
           </div>
-
         )}
 
-        {/* Auto Create Teams */}
-        {mode === 'auto' && unassignedParticipants.length > 0 && (
-          <div className="manual-teams-section">
-            <h2 className="title-2">Auto-Create Teams</h2>
-            <div className="question-item" style={{ marginBottom: '30px' }}>
-              <p style={{ marginBottom: '15px' }}>
-                This will automatically create teams of {teamSize} members each from the unassigned participants.
-              </p>
-              <label style={{ display: 'block', marginBottom: '15px' }}>
-                <span style={{ fontWeight: 500 }}>Team Size:</span>
-                <input
-                  type="number"
-                  min="2"
-                  max={unassignedParticipants.length}
-                  value={teamSize}
-                  onChange={(e) => setTeamSize(parseInt(e.target.value) || 3)}
-                  style={{
-                    width: '100%',
-                    marginTop: '8px',
-                    padding: '12px 16px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--black-border)',
-                    backgroundColor: 'var(--project-card-bg)',
-                    color: 'var(--text-color)',
-                    fontSize: '16px',
-                  }}
-                />
-              </label>
-            </div>
-
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button
-                className="btn"
-                onClick={handleAutoCreateTeams}
-                disabled={submitting}
-                style={{ flex: 1, backgroundColor: '#4CAF50' }}
-              >
-                {submitting ? 'Creating...' : `Create Teams of ${teamSize}`}
-              </button>
-              <button
-                onClick={() => setMode('view')}
-                style={{
-                  padding: '12px 28px',
-                  backgroundColor: '#f44336',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '5px',
-                  cursor: 'pointer',
-                  fontWeight: 500,
-                }}
-              >
-                Cancel
-              </button>
-            </div>
+        {/* Back Button */}
+        {mode === 'view' && (
+          <div style={{ marginTop: '30px', display: 'flex', gap: '10px' }}>
+            <button
+              onClick={() => navigate(`/participants/${projectId}${returnTo === 'list' ? '/list' : ''}`)}
+              style={{
+                padding: '10px 20px',
+                backgroundColor: '#666',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+              }}
+            >
+              Back to {returnTo === 'list' ? 'Participant List' : 'Teams View'}
+            </button>
           </div>
         )}
       </div>

@@ -18,38 +18,49 @@ export default function ParticipantTeams() {
       try {
         setLoading(true);
         const data = await dashboardAPI.getParticipants(projectId);
-
-        const withTeams    = Array.isArray(data?.participantsWithTeams)    ? data.participantsWithTeams    : [];
-        const withoutTeams = Array.isArray(data?.participantsWithoutTeams) ? data.participantsWithoutTeams : [];
-
-        // Group participants who have a team, by teamName
+        
+        // Parse response based on backend structure
+        const participants = data.participantsWithTeams || Array.isArray(data) ? data : [];
+        
+        // Group participants by team
         const teamsMap = {};
-        withTeams.forEach((p) => {
-          const key = p.teamName || 'Unassigned';
-          if (!teamsMap[key]) teamsMap[key] = [];
-          teamsMap[key].push(`${p.firstName ?? ''} ${p.lastName ?? ''}`.trim());
+        const noTeam = [];
+        
+        participants.forEach(p => {
+          if (p.team && p.team.trim() !== '') {
+            if (!teamsMap[p.team]) {
+              teamsMap[p.team] = [];
+            }
+            teamsMap[p.team].push(`${p.name}${p.surname ? ' ' + p.surname : ''}`);
+          } else {
+            noTeam.push(p.name);
+          }
         });
-
-        const formattedTeams = Object.entries(teamsMap).map(([name, members], idx) => ({
+        
+        // Convert to team format
+        const formattedTeams = Object.entries(teamsMap).map((entry, idx) => ({
           id: idx + 1,
-          name,
-          members,
+          name: entry[0],
+          members: entry[1],
         }));
-
-        const noTeam = withoutTeams.map((p) => `${p.firstName ?? ''} ${p.lastName ?? ''}`.trim());
-
+        
         setTeams(formattedTeams);
         setNoTeamParticipants(noTeam);
-        setAllParticipantsData([...withTeams, ...withoutTeams]);
+        setAllParticipantsData(participants);
         setError(null);
       } catch (err) {
         console.error('Error fetching participants:', err);
         setError(err.message);
+        // Fallback to mock data
         setTeams([
-          { id: 1, name: 'Quantum Builders', members: ['Anna Popescu', 'Ion Rusu'] },
-          { id: 2, name: 'Code Horizon',     members: ['Alexandru Munteanu'] },
+          { id: 1, name: "Quantum Builders", members: ["Anna Popescu", "Ion Rusu", "Maria Ionescu"] },
+          { id: 2, name: "Code Horizon", members: ["Alexandru Munteanu", "Elena Dumitru"] },
         ]);
-        setNoTeamParticipants(['Andrei Vasile', 'Cristina Marin']);
+        setNoTeamParticipants([
+          "Andrei Vasile",
+          "Cristina Marin",
+          "Mihai Popa",
+        ]);
       } finally {
         setLoading(false);
       }

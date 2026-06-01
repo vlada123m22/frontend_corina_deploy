@@ -17,8 +17,7 @@ export default function EditProject() {
     endDate: '',
     minNrParticipants: '',
     maxNrParticipants: '',
-    teamsPreformed: false,
-    registrationType: '', // 'A' or 'B'
+    teamsPreformed: null,   // null = not loaded yet, false = Type A, true = Type B
     formQuestions: [],
   });
 
@@ -28,8 +27,7 @@ export default function EditProject() {
         setLoading(true);
         setError('');
         const data = await projectAPI.getProjectById(id);
-        
-        // Transform API response to form format
+
         setForm({
           projectId: id,
           projectName: data.projectName || '',
@@ -38,15 +36,14 @@ export default function EditProject() {
           endDate: data.endDate ? data.endDate.split('T')[0] : '',
           minNrParticipants: data.minNrParticipants || '',
           maxNrParticipants: data.maxNrParticipants || '',
-          teamsPreformed: data.teamsPreformed || false,
-          registrationType: data.teamsPreformed ? 'B' : 'A',
+          teamsPreformed: typeof data.teamsPreformed === 'boolean' ? data.teamsPreformed : null,
           formQuestions: data.formQuestions || [],
         });
       } catch (err) {
         console.error('Error fetching project:', err);
         setError(err.message);
         // Fallback mock data
-        setForm(prev => ({
+        setForm((prev) => ({
           ...prev,
           projectName: `Sample Project ${id}`,
           projectDescription: 'This is a sample project description that can be edited.',
@@ -54,7 +51,7 @@ export default function EditProject() {
           endDate: '2026-07-20',
           minNrParticipants: '3',
           maxNrParticipants: '8',
-          registrationType: 'A',
+          teamsPreformed: false,
           formQuestions: [
             { questionNumber: 1, questionType: 'TEXT', question: 'Why do you want to join this project?' },
             { questionNumber: 2, questionType: 'FILE', question: 'Upload your CV or portfolio' },
@@ -122,8 +119,8 @@ export default function EditProject() {
     e.preventDefault();
     setError('');
 
-    if (!form.registrationType) {
-      setError("Please select a registration type (A or B)");
+    if (form.teamsPreformed === null) {
+      setError('Please select a project type (A or B).');
       return;
     }
 
@@ -138,7 +135,7 @@ export default function EditProject() {
         endDate: form.endDate ? new Date(form.endDate).toISOString() : null,
         minNrParticipants: parseInt(form.minNrParticipants) || 1,
         maxNrParticipants: parseInt(form.maxNrParticipants) || 10,
-        teamsPreformed: form.registrationType === 'B',
+        teamsPreformed: form.teamsPreformed,   // already a boolean
         formQuestions: form.formQuestions,
       };
 
@@ -228,32 +225,36 @@ export default function EditProject() {
             </div>
           </div>
 
-          {/* Registration Type */}
+          {/* Project Type - bound directly to teamsPreformed */}
           <div className="form-group">
             <label style={{ marginBottom: '12px', display: 'block' }}>
-              Registration Type *
+              Project Type *
             </label>
             <div className="registration-options">
-              <label className={`reg-option ${form.registrationType === 'A' ? 'selected' : ''}`}>
+              <label className={`reg-option ${form.teamsPreformed === false ? 'selected' : ''}`}>
                 <input
                   type="radio"
-                  name="registrationType"
-                  value="A"
-                  checked={form.registrationType === 'A'}
-                  onChange={(e) => setForm({ ...form, registrationType: e.target.value })}
+                  name="teamsPreformed"
+                  checked={form.teamsPreformed === false}
+                  onChange={() => setForm({ ...form, teamsPreformed: false })}
                 />
-                <span>A: Participants register on the platform and apply to teams.</span>
+                <span>
+                  <strong>Type A — Idea-based.</strong> Participants register individually;
+                  teams are formed at the event by joining or creating ideas.
+                </span>
               </label>
 
-              <label className={`reg-option ${form.registrationType === 'B' ? 'selected' : ''}`}>
+              <label className={`reg-option ${form.teamsPreformed === true ? 'selected' : ''}`}>
                 <input
                   type="radio"
-                  name="registrationType"
-                  value="B"
-                  checked={form.registrationType === 'B'}
-                  onChange={(e) => setForm({ ...form, registrationType: e.target.value })}
+                  name="teamsPreformed"
+                  checked={form.teamsPreformed === true}
+                  onChange={() => setForm({ ...form, teamsPreformed: true })}
                 />
-                <span>B: Participants register their teams through the form.</span>
+                <span>
+                  <strong>Type B — Team-based.</strong> Participants register with their
+                  pre-formed teams through the application form.
+                </span>
               </label>
             </div>
           </div>

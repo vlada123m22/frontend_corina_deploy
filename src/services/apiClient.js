@@ -118,6 +118,13 @@ export const projectAPI = {
     });
   },
 
+  getTeamMembers: async (projectId, teamName) => {
+    return apiFetch(`/${projectId}/teams/${encodeURIComponent(teamName)}/members`, {
+      method: 'GET',
+      headers: {}, // public endpoint
+    });
+  },
+
   getProjectSchedule: async (projectId, dayNumber) => {
     return apiFetch(`/projects/${projectId}/schedule/${dayNumber}`, {
       method: 'GET',

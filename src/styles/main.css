@@ -1105,3 +1105,16 @@ body {
   min-width: 160px;
   text-align: center;
 }
+
+.content-card {
+    padding: 24px;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    background: #fff;
+  }
+  .title-3 { font-size: 1.3rem; margin: 0 0 12px; }
+  .btn-outline {
+    background: transparent;
+    border: 1px solid currentColor;
+    color: inherit;
+  }
